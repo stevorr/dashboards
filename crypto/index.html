@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Crypto Markets</title>
+    <meta name="description" content="Live cryptocurrency market data from the CoinGecko API." />
+    <link rel="stylesheet" href="../shared/theme.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      Order matters and nothing here is deferred.
+
+      A host that inlines each same-repo <script src> where it stands leaves
+      these running top to bottom as written; the CDN script stays external and,
+      being neither async nor defer, still blocks until it has defined
+      htmPreact. They sit at the end of <body> so #root exists by the time
+      app.js mounts.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.umd.js"></script>
+    <script src="../shared/lib.js"></script>
+    <script src="../shared/charts.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

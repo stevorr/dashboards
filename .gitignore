@@ -1,0 +1,7 @@
+# Local editor and preview-server config.
+.claude/
+
+# Nothing here is built or installed, but editors and OSes disagree.
+node_modules/
+.DS_Store
+Thumbs.db
