@@ -96,6 +96,57 @@
   }
 
   /**
+   * Parses a successful response, and says what arrived when it will not parse.
+   *
+   * A 200 whose body is not JSON is a real and confusing case: something
+   * between the page and the API -- a proxy, a gateway, a captive portal, a
+   * sign-in redirect -- answered instead of the API, and answered successfully.
+   * Calling `.json()` straight off the response turns that into a bare
+   * "unexpected character at line 1 column 1", which names neither who replied
+   * nor what they said. Reading the body as text first costs nothing and lets
+   * the message quote the thing that actually came back, which is usually
+   * enough to identify the culprit on sight.
+   */
+  function readJson(response, url) {
+    return response.text().then(function (body) {
+      try {
+        return JSON.parse(body);
+      } catch (error) {
+        var type = response.headers.get("content-type") || "no content-type";
+        var head = body.slice(0, 100).replace(/\s+/g, " ").trim();
+
+        throw HttpError(
+          "Expected JSON from " +
+            new URL(url).origin +
+            " but got HTTP " +
+            response.status +
+            " as " +
+            type +
+            (head ? ', starting: ' + head : " with an empty body") +
+            ".",
+          response.status,
+          "bad-body"
+        );
+      }
+    });
+  }
+
+  /**
+   * Whether an error is the kind a missing API key would produce.
+   *
+   * Deliberately narrow. A page with no key needs to be able to ask for one,
+   * but only for failures a key would actually fix -- offering a key box for a
+   * malformed response or a server fault sends whoever is reading it looking
+   * for the wrong thing entirely.
+   */
+  function isCredentialFailure(error) {
+    if (!error) return false;
+    return (
+      error.kind === "auth" || error.kind === "rate-limit" || error.kind === "blocked"
+    );
+  }
+
+  /**
    * Fetches JSON and turns every failure into one carrying a message worth
    * showing.
    *
@@ -123,7 +174,7 @@
         );
       })
       .then(function (response) {
-        if (response.ok) return response.json();
+        if (response.ok) return readJson(response, url);
 
         if (response.status === 401 || response.status === 403) {
           throw HttpError(
@@ -643,6 +694,7 @@
     writeStore: writeStore,
 
     fetchJson: fetchJson,
+    isCredentialFailure: isCredentialFailure,
     query: query,
 
     useAsync: useAsync,

@@ -213,7 +213,7 @@
       saving a key flips this, and returning early above the memos would change
       how many hooks this component calls between two renders.
     */
-    var mustAsk = !key && !request.updatedAt && !!request.error;
+    var mustAsk = !key && !request.updatedAt && DB.isCredentialFailure(request.error);
 
     if (mustAsk) {
       return html`

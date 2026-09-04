@@ -329,7 +329,7 @@
       an early return above the memos would change the hook count between two
       renders of the same component.
     */
-    var mustAsk = !key && !request.updatedAt && !!request.error;
+    var mustAsk = !key && !request.updatedAt && DB.isCredentialFailure(request.error);
 
     if (mustAsk) {
       return html`

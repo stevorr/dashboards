@@ -274,7 +274,7 @@
       Same rule as the weather and stocks dashboards; see the note there for why
       it is not written against the HTTP status.
     */
-    var needsKey = !key && !request.updatedAt && !!request.error;
+    var needsKey = !key && !request.updatedAt && DB.isCredentialFailure(request.error);
 
     if (needsKey) {
       return html`
