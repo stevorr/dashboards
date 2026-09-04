@@ -65,12 +65,22 @@ belongs to.
 
 Each folder is its own entry point:
 
-| Dashboard | Entry file | API host | Credential | Variable |
-|---|---|---|---|---|
-| Crypto Markets | `crypto/index.html` | `api.coingecko.com` | header `x-cg-demo-api-key` | `COINGECKO_API_KEY` (optional) |
-| Weather Forecast | `weather/index.html` | `api.openweathermap.org` | query `appid` | `OPENWEATHER_API_KEY` |
-| Seismic Activity | `earthquakes/index.html` | `earthquake.usgs.gov` | none | none |
-| Market Watch | `stocks/index.html` | `finnhub.io` | query `token` | `FINNHUB_API_KEY` |
+| Dashboard | Entry file | Target origin | Sent as | Credential name | Variable |
+|---|---|---|---|---|---|
+| Crypto Markets | `crypto/index.html` | `https://api.coingecko.com` | request header | `x-cg-demo-api-key` | `COINGECKO_API_KEY` (optional) |
+| Weather Forecast | `weather/index.html` | `https://api.openweathermap.org` | query parameter | `appid` | `OPENWEATHER_API_KEY` |
+| Seismic Activity | `earthquakes/index.html` | `https://earthquake.usgs.gov` | — | — | — |
+| Market Watch | `stocks/index.html` | `https://finnhub.io` | query parameter | `token` | `FINNHUB_API_KEY` |
+
+The **target origin** is scheme and host with no path, because that is what a
+proxy matches an outbound request against — `https://api.coingecko.com`, not
+`https://api.coingecko.com/api/v3`. Each dashboard calls exactly one origin, so
+one target per deployable covers it.
+
+**Sent as** is where the credential has to be placed on the way out, and it is
+the API's choice rather than ours: CoinGecko reads a request header, OpenWeather
+and Finnhub read a query parameter. **Credential name** is the header or
+parameter that carries it.
 
 If the pages are served inside a sandboxed frame that narrows outbound calls to
 an approved list, **every dashboard needs its API host on that list, including
