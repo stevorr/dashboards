@@ -108,27 +108,78 @@
    * enough to identify the culprit on sight.
    */
   function readJson(response, url) {
-    return response.text().then(function (body) {
+    return response.arrayBuffer().then(function (buffer) {
+      var bytes = new Uint8Array(buffer);
+      var body = new TextDecoder("utf-8").decode(bytes);
+
       try {
         return JSON.parse(body);
       } catch (error) {
-        var type = response.headers.get("content-type") || "no content-type";
-        var head = body.slice(0, 100).replace(/\s+/g, " ").trim();
-
-        throw HttpError(
-          "Expected JSON from " +
-            new URL(url).origin +
-            " but got HTTP " +
-            response.status +
-            " as " +
-            type +
-            (head ? ', starting: ' + head : " with an empty body") +
-            ".",
-          response.status,
-          "bad-body"
-        );
+        throw HttpError(describeBadBody(response, url, bytes, body), response.status, "bad-body");
       }
     });
+  }
+
+  /**
+   * The compression format a body begins with, by magic number, or null.
+   *
+   * Worth checking because of one specific and very confusing failure: a proxy
+   * that forwards a compressed upstream body but drops the `Content-Encoding`
+   * header describing it. The status is 200 and the content type still says
+   * JSON, so nothing looks wrong until the parse fails on bytes that are not
+   * text at all. Naming the format turns that into a one-line fix.
+   *
+   * Brotli is absent on purpose: it has no magic number to test for.
+   */
+  function compressionFormat(bytes) {
+    if (bytes.length < 2) return null;
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) return "gzip";
+    if (
+      bytes.length >= 4 &&
+      bytes[0] === 0x28 &&
+      bytes[1] === 0xb5 &&
+      bytes[2] === 0x2f &&
+      bytes[3] === 0xfd
+    ) {
+      return "zstd";
+    }
+    if (bytes[0] === 0x78 && (bytes[1] === 0x01 || bytes[1] === 0x9c || bytes[1] === 0xda)) {
+      return "zlib";
+    }
+    return null;
+  }
+
+  function describeBadBody(response, url, bytes, body) {
+    var origin = new URL(url).origin;
+    var type = response.headers.get("content-type") || "no content-type";
+    var compressed = compressionFormat(bytes);
+
+    if (compressed) {
+      return (
+        "The response from " +
+        origin +
+        " is " +
+        compressed +
+        "-compressed but arrived without a Content-Encoding header, so the " +
+        "browser did not decompress it. Whatever proxies this API needs to " +
+        "forward that header with the body, or decompress before forwarding."
+      );
+    }
+
+    if (!bytes.length) {
+      return "Expected JSON from " + origin + " but the response body was empty.";
+    }
+
+    return (
+      "Expected JSON from " +
+      origin +
+      " but got HTTP " +
+      response.status +
+      " as " +
+      type +
+      ", starting: " +
+      body.slice(0, 100).replace(/\s+/g, " ").trim()
+    );
   }
 
   /**
