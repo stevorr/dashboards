@@ -876,6 +876,57 @@
   var MAP_W = 360;
   var MAP_H = 180;
 
+  /*
+    Natural Earth's rings are not cut at the antimeridian: Eurasia, Antarctica
+    and a couple of island rings step straight from +179 to -180, which this
+    projection would otherwise draw as a horizontal smear across the whole map.
+    Unwrapping the longitudes keeps a ring continuous across the seam, and the
+    copies at +/-360 bring the part that ran off one edge back on at the other.
+    The clip on the group trims whatever falls outside the 0..360 box.
+  */
+  function addRing(parts, ring) {
+    var xs = [];
+    var ys = [];
+    var offset = 0;
+    var previous = ring[0];
+    var i;
+
+    // Flat [lon, lat, lon, lat, ...] -- see the note in world.js.
+    for (i = 0; i < ring.length; i += 2) {
+      var lon = ring[i];
+      if (lon - previous > 180) offset -= 360;
+      else if (previous - lon > 180) offset += 360;
+      previous = lon;
+
+      xs.push(lon + offset + 180);
+      ys.push(90 - ring[i + 1]);
+    }
+
+    /* A ring that crosses the seam an odd number of times runs right around a
+       pole -- Antarctica -- so it has to be closed along the pole edge rather
+       than straight back to its first point. */
+    var last = xs.length - 1;
+    if (Math.abs(xs[last] - xs[0]) > 180) {
+      var poleY = ys[0] > MAP_H / 2 ? MAP_H : 0;
+      xs.push(xs[last], xs[0]);
+      ys.push(poleY, poleY);
+    }
+
+    var minX = Math.min.apply(null, xs);
+    var maxX = Math.max.apply(null, xs);
+
+    for (var copy = -2; copy <= 2; copy++) {
+      var dx = copy * 360;
+      if (minX + dx > MAP_W || maxX + dx < 0) continue;
+
+      parts.push("M" + (xs[0] + dx).toFixed(2) + "," + ys[0].toFixed(2));
+      for (i = 1; i < xs.length; i++) {
+        parts.push("L" + (xs[i] + dx).toFixed(2) + "," + ys[i].toFixed(2));
+      }
+      parts.push("Z");
+    }
+  }
+
   function buildLandPath(land) {
     var parts = [];
 
@@ -885,20 +936,14 @@
       for (var r = 0; r < polygon.length; r++) {
         var ring = polygon[r];
         if (ring.length < 8) continue;
-
-        // Flat [lon, lat, lon, lat, ...] -- see the note in world.js.
-        parts.push("M" + (ring[0] + 180).toFixed(2) + "," + (90 - ring[1]).toFixed(2));
-
-        for (var i = 2; i < ring.length; i += 2) {
-          parts.push("L" + (ring[i] + 180).toFixed(2) + "," + (90 - ring[i + 1]).toFixed(2));
-        }
-
-        parts.push("Z");
+        addRing(parts, ring);
       }
     }
 
     return parts.join("");
   }
+
+  var mapClipSeq = 0;
 
   /**
    * props.points: [{ lon, lat, radius, color, title, rows, href }]
@@ -926,6 +971,7 @@
     var svgRef = DB.useRef(null);
 
     var world = global.DBWorld;
+    var clipId = useMemo(function () { return "map-clip-" + ++mapClipSeq; }, []);
     var landPath = useMemo(
       function () { return world ? buildLandPath(world.land) : ""; },
       [world]
@@ -1037,7 +1083,14 @@
           >
             <rect x="0" y="0" width=${width} height=${height} class="map-sea" />
 
-            <g transform=${"translate(" + ox + "," + oy + ") scale(" + scale + ")"}>
+            <defs>
+              <clipPath id=${clipId}>
+                <rect x="0" y="0" width=${MAP_W} height=${MAP_H} />
+              </clipPath>
+            </defs>
+
+            <g clip-path=${"url(#" + clipId + ")"}
+              transform=${"translate(" + ox + "," + oy + ") scale(" + scale + ")"}>
               ${graticule.map(function (line) {
                 return html`<line
                   key=${(line.vertical ? "v" : "h") + line.at}
