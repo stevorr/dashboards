@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Data Center Construction</title>
+    <meta name="description" content="Data centers mapped as under construction in OpenStreetMap, via the Overpass API." />
+    <link rel="stylesheet" href="../shared/theme.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!--
+      Order matters and nothing here is deferred -- see earthquakes/index.html
+      for why. world.js is needed for the map.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.umd.js"></script>
+    <script src="../shared/lib.js"></script>
+    <script src="../shared/charts.js"></script>
+    <script src="../shared/world.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

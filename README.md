@@ -1,6 +1,6 @@
 # dashboards
 
-Four self-contained dashboards, each reading a live public API. Every folder is
+Five self-contained dashboards, each reading a live public API. Every folder is
 an independent page that can be deployed on its own.
 
 | Folder | Dashboard | Data source | Credential |
@@ -9,6 +9,7 @@ an independent page that can be deployed on its own.
 | [`weather/`](weather) | Weather Forecast | OpenWeather | Required, query param |
 | [`earthquakes/`](earthquakes) | Seismic Activity | USGS event catalog | None |
 | [`stocks/`](stocks) | Market Watch | Finnhub | Required, query param |
+| [`datacenters/`](datacenters) | Data Center Construction | OpenStreetMap via Overpass | None |
 
 Each folder holds one `index.html` plus its `app.js` and shares the code in
 [`shared/`](shared).
@@ -36,7 +37,7 @@ and dark are one token swap rather than two sets of chart options.
 shared/theme.css    design tokens, layout, light + dark
 shared/lib.js       fetch, hooks, scales, formatters
 shared/charts.js    chart, map and UI components
-shared/world.js     world land outlines (earthquakes only)
+shared/world.js     world land outlines (earthquakes, datacenters)
 <folder>/index.html entry document — lists its scripts in order
 <folder>/app.js     the dashboard itself
 ```
@@ -56,7 +57,7 @@ Any static file server from the repository root, then open a folder:
 npx --yes http-server . -p 4322
 ```
 
-The keyless dashboard (`earthquakes/`) works immediately. The others make their
+The keyless dashboards (`earthquakes/`, `datacenters/`) work immediately. The others make their
 first call, get refused, and show a card asking for an API key, which is kept in
 `localStorage` for that browser only and is never sent anywhere but the API it
 belongs to.
@@ -71,6 +72,7 @@ Each folder is its own entry point:
 | Weather Forecast | `weather/index.html` | `https://api.openweathermap.org` | query parameter | `appid` | `OPENWEATHER_API_KEY` |
 | Seismic Activity | `earthquakes/index.html` | `https://earthquake.usgs.gov` | — | — | — |
 | Market Watch | `stocks/index.html` | `https://finnhub.io` | query parameter | `token` | `FINNHUB_API_KEY` |
+| Data Center Construction | `datacenters/index.html` | `https://overpass-api.de` | — | — | — |
 
 The **target origin** is scheme and host with no path, because that is what a
 proxy matches an outbound request against — `https://api.coingecko.com`, not
@@ -86,7 +88,8 @@ If the pages are served inside a sandboxed frame that narrows outbound calls to
 an approved list, **every dashboard needs its API host on that list, including
 the keyless one**. A call to an unlisted host fails at the network layer with no
 HTTP status at all. Being reachable and having a credential attached are
-separate things; `earthquakes/` needs the first and not the second.
+separate things; `earthquakes/` and `datacenters/` need the first and not the
+second.
 
 ### Where the keys live
 
@@ -132,6 +135,28 @@ Land sits in a transformed group so panning costs one attribute rather than
 rebuilding a 5,000-point path, and the marks are projected separately so a
 circle keeps its size at every zoom — a marker that scaled with the map would be
 encoding the zoom level as well as the magnitude.
+
+## Data centers under construction
+
+`datacenters/` lists sites OpenStreetMap contributors have tagged as data
+centers being built (`construction=data_center`, `construction:telecom=…` or
+`construction:building=…`, either spelling), read live from the public Overpass
+API. It is a census of the map, not of the industry, and the page says so.
+
+Two consequences of the source shape the page:
+
+- **The query is slow.** Overpass has no worldwide tag index, so a global scan
+  takes 30–60 seconds. The last good result is kept in `localStorage` and drawn
+  immediately on the next visit while a fresh one loads behind it, and there is
+  no refresh timer.
+- **The public instance sheds load.** When its workers are full it answers 502
+  or 429 at once and asks for exponential backoff, so the page retries at 5, 10,
+  20 and 40 seconds before showing an error.
+
+Stage comes from how a site is drawn (`building=construction` is a structure
+rising, `landuse=construction` is site works, `abandoned`/`disused` is
+stalled), region is a coarse longitude/latitude box, and "extent" is the
+bounding box, which overstates any site not drawn square to north.
 
 ## Notes on the charts
 
